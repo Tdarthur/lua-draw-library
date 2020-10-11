@@ -9,18 +9,79 @@
 #include "lualib.h"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_timer.h>
 
-static int draw_setscreen (lua_State *L) { return 1; }
+#define DEFAULT_WINDOW_TITLE "Graphics Screen"
+#define DEFAULT_WINDOW_WIDTH 600
+#define DEFAULT_WINDOW_HEIGHT 800
 
-static int draw_settitle (lua_State *L) { return 1; }
+int initialized = 0;
 
-static int draw_showtitle (lua_State *L) { return 1; }
+int graphicsMode = 0;
 
-static int draw_clear (lua_State *L) { return 1; }
+SDL_Window *window = NULL;
+SDL_Renderer *renderer = NULL;
 
-static int draw_getsize (lua_State *L) { if (L) { } return 1; }
+static int draw_setscreen (lua_State *L) {
+    const int mode = luaL_checkinteger(L, 1);
 
-static int draw_getport (lua_State *L) { if (L) { } return 1; }
+    if (mode == 0) {
+        if (graphicsMode) {
+            SDL_DestroyRenderer(renderer);
+            SDL_DestroyWindow(window);
+        }
+    } else if (mode == 1 || mode == 2) {
+        if (!initialized) {
+            if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+                printf("error initializing SDL: %s\n", SDL_GetError());
+            } else {
+                initialized = 1;
+            }
+        }
+
+        if (!graphicsMode) {
+            window = SDL_CreateWindow(DEFAULT_WINDOW_TITLE,
+                SDL_WINDOWPOS_CENTERED, 
+                SDL_WINDOWPOS_CENTERED,
+                DEFAULT_WINDOW_WIDTH,
+                DEFAULT_WINDOW_HEIGHT,
+                SDL_WINDOW_INPUT_GRABBED);
+            renderer = SDL_CreateRenderer(window, 
+                0, 
+                SDL_RENDERER_ACCELERATED |
+                0);
+        }
+    }
+
+    graphicsMode = mode;
+
+    return 1;
+}
+
+static int draw_settitle (lua_State *L) {
+    const char *text = luaL_checkstring(L, 1);
+
+    if (graphicsMode) {
+        SDL_SetWindowTitle(window, text);
+    }
+
+    return 1;
+}
+
+static int draw_showtitle (lua_State *L) { if (L) { } return 1; }
+
+static int draw_clear (lua_State *L) { if (L) { } return 1; }
+
+static int draw_getsize (lua_State *L) {
+    int width, height;
+
+    SDL_GetWindowSize(window, &width, &height);
+
+    lua_pushinteger(L, width);
+    lua_pushinteger(L, height);
+
+    return 2;
+}
 
 static int draw_point (lua_State *L) { if (L) { } return 1; }
 
@@ -76,13 +137,21 @@ static int draw_setantialias (lua_State *L) { if (L) { } return 1; }
 
 static int draw_getantialias (lua_State *L) { if (L) { } return 1; }
 
-static int draw_sleep (lua_State *L) { return 1; }
+static int draw_sleep (lua_State *L) { 
+    const int milliseconds = luaL_checkinteger(L, 1);
+
+    if (milliseconds > 0) { 
+        SDL_Delay(milliseconds);
+    }
+
+    return 1;
+}
 
 static int draw_gettime (lua_State *L) { if (L) { } return 1; }
 
 static int draw_beginframe (lua_State *L) { if (L) { } return 1; }
 
-static int draw_endframe (lua_State *L) { return 1; }
+static int draw_endframe (lua_State *L) { if (L) { } return 1; }
 
 static int draw_setrefresh (lua_State *L) { if (L) { } return 1; }
 
@@ -93,8 +162,6 @@ static int draw_enablerefresh (lua_State *L) { if (L) { } return 1; }
 static int draw_refresh (lua_State *L) { if (L) { } return 1; }
 
 static int draw_waittouch (lua_State *L) { if (L) { } return 1; }
-
-static int draw_tracktouches (lua_State *L) { if (L) { } return 1; }
 
 static int draw_doevents (lua_State *L) { if (L) { } return 1; }
 
@@ -148,7 +215,7 @@ static const luaL_Reg drawlib[] = {
     {"showtitle", draw_showtitle},
     {"clear", draw_clear},
     {"getsize", draw_getsize},
-    {"getport", draw_getport},
+    {"getport", draw_getsize},
     {"point", draw_point},
     {"moveto", draw_moveto},
     {"lineto", draw_lineto},
