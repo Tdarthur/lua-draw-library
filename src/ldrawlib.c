@@ -15,9 +15,16 @@
 #define DEFAULT_WINDOW_WIDTH 600
 #define DEFAULT_WINDOW_HEIGHT 800
 
+#define DEFAULT_REFRESH_RATE 60
+
 int initialized = 0;
 
 int graphicsMode = 0;
+
+int antialiasEnabled = 1;
+
+int refreshEnabled = 0;
+int refreshRate = DEFAULT_REFRESH_RATE;
 
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
@@ -45,11 +52,17 @@ static int draw_setscreen (lua_State *L) {
                 SDL_WINDOWPOS_CENTERED,
                 DEFAULT_WINDOW_WIDTH,
                 DEFAULT_WINDOW_HEIGHT,
-                SDL_WINDOW_INPUT_GRABBED);
+                // SDL_WINDOW_ALWAYS_ON_TOP |
+                SDL_WINDOW_SKIP_TASKBAR |
+                // SDL_WINDOW_BORDERLESS |
+                SDL_WINDOW_INPUT_GRABBED
+                );
             renderer = SDL_CreateRenderer(window, 
-                0, 
-                SDL_RENDERER_ACCELERATED |
-                0);
+                -1, 
+                SDL_RENDERER_ACCELERATED && antialiasEnabled);
+            // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            // SDL_RenderClear(renderer);
+            // SDL_RenderPresent(renderer);
         }
     }
 
@@ -133,9 +146,18 @@ static int draw_setfont (lua_State *L) { if (L) { } return 1; }
 
 static int draw_setlinestyle (lua_State *L) { if (L) { } return 1; }
 
-static int draw_setantialias (lua_State *L) { if (L) { } return 1; }
+static int draw_setantialias (lua_State *L) { 
+    int flag = lua_toboolean(L, 1);
+    antialiasEnabled = flag;
 
-static int draw_getantialias (lua_State *L) { if (L) { } return 1; }
+    return 1;
+}
+
+static int draw_getantialias (lua_State *L) {
+    lua_pushboolean(L, antialiasEnabled);
+
+    return 1;
+}
 
 static int draw_sleep (lua_State *L) { 
     const int milliseconds = luaL_checkinteger(L, 1);
@@ -149,17 +171,35 @@ static int draw_sleep (lua_State *L) {
 
 static int draw_gettime (lua_State *L) { if (L) { } return 1; }
 
-static int draw_beginframe (lua_State *L) { if (L) { } return 1; }
+static int draw_beginframe () {
+    refreshEnabled = 0;
 
-static int draw_endframe (lua_State *L) { if (L) { } return 1; }
+    return 1;    
+}
 
-static int draw_setrefresh (lua_State *L) { if (L) { } return 1; }
+static int draw_endframe () {
+    if (renderer) {
+        SDL_RenderPresent(renderer);
+    }
 
-static int draw_disablerefresh (lua_State *L) { if (L) { } return 1; }
+    return 1;
+}
 
-static int draw_enablerefresh (lua_State *L) { if (L) { } return 1; }
+static int draw_setrefresh (lua_State *L) {
+    int times = luaL_checkinteger(L, 1);
 
-static int draw_refresh (lua_State *L) { if (L) { } return 1; }
+    refreshRate = times;
+
+    return 1;
+}
+
+static int draw_refresh () {
+    if (renderer) {
+        SDL_RenderPresent(renderer);
+    }
+
+    return 1;
+}
 
 static int draw_waittouch (lua_State *L) { if (L) { } return 1; }
 
@@ -248,8 +288,8 @@ static const luaL_Reg drawlib[] = {
     {"beginframe", draw_beginframe},
     {"endframe", draw_endframe},
     {"setrefresh", draw_setrefresh},
-    {"disablerefresh", draw_disablerefresh},
-    {"enablerefresh", draw_enablerefresh},
+    {"disablerefresh", draw_beginframe},
+    {"enablerefresh", draw_endframe},
     {"refresh", draw_refresh},
     {"waittouch", draw_waittouch},
     {"doevents", draw_doevents},
